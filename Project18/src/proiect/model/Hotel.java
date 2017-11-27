@@ -19,10 +19,12 @@ public class Hotel implements Serializable {
 	}
 
 	public void adaugaCamera(Camera c) {
-		camere.add(c);
+		synchronized (this) {
+			camere.add(c);
+		}
 	}
 
-	public Camera getCameraDisponibila(int nrLocuri) {
+	public synchronized Camera getCameraDisponibila(int nrLocuri) {
 		for (Camera c : camere) {
 			if (c.isEmpty() && nrLocuri == c.getNrLocuri()) {
 				return c;
@@ -31,7 +33,7 @@ public class Hotel implements Serializable {
 		return null;
 	}
 
-	public int getIntretinere() {
+	public synchronized int getIntretinere() {
 		int suma = 0;
 		for (Camera c : camere) {
 			suma += c.getIntretinerePerZi();
@@ -39,7 +41,7 @@ public class Hotel implements Serializable {
 		return suma;
 	}
 
-	public int getIncasari() {
+	public synchronized int getIncasari() {
 		int suma = 0;
 		for (Camera c : camere) {
 			if (!c.isEmpty()) {
@@ -49,13 +51,13 @@ public class Hotel implements Serializable {
 		return suma;
 	}
 
-	public void verificaClienti() {
+	public synchronized void verificaClienti() {
 		for (Camera c : camere) {
 			c.verificaClient();
 		}
 	}
 
-	public int getNrCamereGoale() {
+	public synchronized int getNrCamereGoale() {
 		int total = 0;
 		for (Camera c : camere) {
 			if (c.isEmpty()) {

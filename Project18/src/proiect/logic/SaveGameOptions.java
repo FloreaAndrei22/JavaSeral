@@ -10,7 +10,15 @@ import java.io.ObjectOutputStream;
 public class SaveGameOptions {
 	private static final String SAVEGAME_FILENAME = "savefile.sv";
 
+	// TODO: de facut sincronizarea
+	// TODO: a nu se lasa mai multe threaduri sa porneasca pana cand nu se
+	// termina de salvat
 	public static void save(GameState game) {
+		try {
+			Thread.sleep(5000);
+		} catch (InterruptedException e1) {
+			e1.printStackTrace();
+		}
 		try (ObjectOutputStream os = new ObjectOutputStream(new FileOutputStream(new File(SAVEGAME_FILENAME)));) {
 			os.writeObject(game);
 			os.flush(); // ajutam la fortarea scrierii

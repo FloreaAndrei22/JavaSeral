@@ -10,6 +10,7 @@ import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.SwingUtilities;
 
 import proiect.logic.GameState;
 import proiect.logic.GameState.GameStateCallbacks;
@@ -54,31 +55,34 @@ public class GameGrafic extends JFrame {
 				if (state == null) {
 					return;
 				}
-				if (labelNrCamere != null) {
-					labelNrCamere.setText("nr camere: " + state.getNrCamere());
-				}
-				if (labelNrCamereGoale != null) {
-					labelNrCamereGoale.setText("nr camere goale: " + state.getNrCamereGoale());
-				}
-				if (labelBuget != null) {
-					labelBuget.setText("buget: " + state.getBuget());
-				}
-				if (labelNrClientiLaCoada != null) {
-					labelNrClientiLaCoada.setText("nr clienti coada: " + state.getNrClientiCoada());
-				}
-				if (labelUrmatorulClient != null) {
-					if (state.getUrmatorulClient() != null) {
-						labelUrmatorulClient.setText("urmatorul client: " + state.getUrmatorulClient().toString());
-					} else {
-						labelUrmatorulClient.setText("nu exista inca; coada e goala...");
+				SwingUtilities.invokeLater(() -> {
+					if (labelNrCamere != null) {
+						labelNrCamere.setText("nr camere: " + state.getNrCamere());
 					}
-				}
-				if (labelStatusCamere != null) {
-					String status = state.getstatus().replace("\n", "<br>");
-					// labelStatusCamere.setText("<html><b>SALUT</b> JAVA <br>
-					// CE <i>MAI</i> FACI <br>KKK</html>");
-					labelStatusCamere.setText("<html>" + status + "</html>");
-				}
+					if (labelNrCamereGoale != null) {
+						labelNrCamereGoale.setText("nr camere goale: " + state.getNrCamereGoale());
+					}
+					if (labelBuget != null) {
+						labelBuget.setText("buget: " + state.getBuget());
+					}
+					if (labelNrClientiLaCoada != null) {
+						labelNrClientiLaCoada.setText("nr clienti coada: " + state.getNrClientiCoada());
+					}
+					if (labelUrmatorulClient != null) {
+						if (state.getUrmatorulClient() != null) {
+							labelUrmatorulClient.setText("urmatorul client: " + state.getUrmatorulClient().toString());
+						} else {
+							labelUrmatorulClient.setText("nu exista inca; coada e goala...");
+						}
+					}
+					if (labelStatusCamere != null) {
+						String status = state.getstatus().replace("\n", "<br>");
+						// labelStatusCamere.setText("<html><b>SALUT</b> JAVA
+						// <br>
+						// CE <i>MAI</i> FACI <br>KKK</html>");
+						labelStatusCamere.setText("<html>" + status + "</html>");
+					}
+				});
 			}
 		});
 
@@ -142,7 +146,13 @@ public class GameGrafic extends JFrame {
 			state.proceseazaClient();
 		});
 		btnSaveGame.addActionListener((ActionEvent actionEvent) -> {
-			SaveGameOptions.save(state);
+			new Thread(() -> {
+				// TODO: de updatat pe interfata grafica
+				btnSaveGame.setEnabled(false);
+				SaveGameOptions.save(state);
+				// TODO: de updatat pe interfata grafica
+				btnSaveGame.setEnabled(true);
+			}).start();
 		});
 		btnLoadGame.addActionListener((ActionEvent e) -> {
 			System.out.println(state.hashCode());

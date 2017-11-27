@@ -3,6 +3,12 @@ package proiect.logic;
 import java.io.Serializable;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import proiect.Util;
 import proiect.model.Camera;
@@ -24,18 +30,22 @@ public class GameState implements Serializable {
 	private static final long serialVersionUID = 1759976492786431734L;
 
 	// FPS
-	public static final int TIME_UNIT = 1000;
+	public static final int PAUSE = 1000;
 
-	private int buget;
+	private AtomicInteger buget;
 	private Hotel hotel;
 	private final Queue<Client> coada = new LinkedList<>();
 	private transient boolean running;
 	private transient GameStateCallbacks callbacks;
+	private transient ScheduledExecutorService service;
+	// TODO: de utilizat 2 lockuri in loc de unul,
+	// un lock pentru coada de clienti si un lock pentru buget
+	private transient Lock lock = new ReentrantLock();
 
 	public GameState() {
 		// intreaba daca se vrea joc nou sau se incarca din fisier
 		// daca se vrea joc nou, initializam cu valori noi
-		buget = 10000000;
+		buget = new AtomicInteger(1_000_000);
 		hotel = new Hotel();
 	}
 
@@ -46,28 +56,38 @@ public class GameState implements Serializable {
 	public void start() {
 		running = true;
 
-		new Thread(() -> {
-			while (running) {
-				try {
-					Thread.sleep(TIME_UNIT);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-				calculeazaZiua();
-			}
-		}).start();
+		service = Executors.newScheduledThreadPool(2);
 
-		// thread care se ocupa cu clienti
-		new Thread(() -> {
-			while (running) {
-				try {
-					Thread.sleep(TIME_UNIT / 3);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-				genereazaClient();
+		// service.execute(() -> {
+		// while (running) {
+		// try {
+		// Thread.sleep(PAUSE);
+		// } catch (InterruptedException e) {
+		// e.printStackTrace();
+		// }
+		// calculeazaZiua();
+		// }
+		// });
+
+		service.scheduleAtFixedRate(() -> {
+			if (running) {
+				// lock.lock();
+				// {
+				calculeazaZiua();
+				// }
+				// lock.unlock();
 			}
-		}).start();
+		}, 0, PAUSE, TimeUnit.MILLISECONDS);
+
+		service.scheduleAtFixedRate(() -> {
+			if (running) {
+				// lock.lock();
+				// {
+				genereazaClient();
+				// }
+				// lock.unlock();
+			}
+		}, 0, PAUSE / 3, TimeUnit.MILLISECONDS);
 
 	}
 
@@ -77,13 +97,17 @@ public class GameState implements Serializable {
 			return;
 		}
 		int costCamera = tip.getPret();
-		if (buget >= costCamera) {
-			buget -= costCamera;
-			hotel.adaugaCamera(new Camera(tip));
-		} else {
-			// TODO: trimite afisarea catre UI
-			System.err.println("Fonduri insuficiente...");
+		lock.lock();
+		{
+			if (buget.get() >= costCamera) {
+				buget.addAndGet(-costCamera);
+				hotel.adaugaCamera(new Camera(tip));
+			} else {
+				// TODO: trimite afisarea catre UI
+				System.err.println("Fonduri insuficiente...");
+			}
 		}
+		lock.unlock();
 	}
 
 	public void proceseazaClient() {
@@ -93,39 +117,51 @@ public class GameState implements Serializable {
 			return;
 		}
 		System.err.println("clientul vrea o camera de " + coada.peek().getNrAnimale());
-		int nrLocuriCerute = coada.peek().getNrAnimale();
-		Camera camera = hotel.getCameraDisponibila(nrLocuriCerute);
-		if (camera == null) {
-			callbacks.proceseazaMeniuAdaugaClientFaraCamera();
-			return;
+		lock.lock();
+		{
+			int nrLocuriCerute = coada.peek().getNrAnimale();
+			Camera camera = hotel.getCameraDisponibila(nrLocuriCerute);
+			if (camera == null) {
+				callbacks.proceseazaMeniuAdaugaClientFaraCamera();
+				return;
+			}
+			camera.setClient(coada.poll());
 		}
-		camera.setClient(coada.poll());
+		lock.unlock();
 	}
 
 	public void trimiteClientAcasa() {
-		coada.poll();
-		System.out.println("Mai ai la coada " + coada.size());
+		lock.lock();
+		{
+			coada.poll();
+			System.out.println("Mai ai la coada " + coada.size());
+		}
+		lock.unlock();
 	}
 
 	public void cumparaCameraSiCazeazaClient() {
 		// alternativ dau return la camera cumaparata
 		cumparaCamere0(callbacks.getTipCamera());
-		int nrLocuriCerute = coada.peek().getNrAnimale();
-		Camera camera = hotel.getCameraDisponibila(nrLocuriCerute);
-		if (camera == null) {
-			coada.poll();
-			System.out.println("A ESUAT CUMPARAREA CAMEREI POSIBIL DIN FONDURI INSU...");
-			System.out.println("am trimis clientul acasa :(");
-		} else {
-			camera.setClient(coada.poll());
+		lock.lock();
+		{
+			int nrLocuriCerute = coada.peek().getNrAnimale();
+			Camera camera = hotel.getCameraDisponibila(nrLocuriCerute);
+			if (camera == null) {
+				coada.poll();
+				System.out.println("A ESUAT CUMPARAREA CAMEREI POSIBIL DIN FONDURI INSU...");
+				System.out.println("am trimis clientul acasa :(");
+			} else {
+				camera.setClient(coada.poll());
+			}
 		}
+		lock.unlock();
 	}
 
 	private void calculeazaZiua() {
 		int deIncasat = hotel.getIncasari();
 		int dePlatit = hotel.getIntretinere();
 		hotel.verificaClienti();
-		buget = buget - dePlatit + deIncasat;
+		buget.addAndGet(deIncasat - dePlatit);
 		if (callbacks != null) {
 			callbacks.afisareInformatii();
 		}
@@ -133,11 +169,15 @@ public class GameState implements Serializable {
 
 	public void genereazaClient() {
 		// am 10% sanse sa imi dea un client
-		if (Util.isNextClientAvailable()) {
-			Client c = new Client("Ghita", 2);
-			coada.offer(c);
-			System.out.println("Avem inca un client, si o coada de " + coada.size());
+		lock.lock();
+		{
+			if (Util.isNextClientAvailable()) {
+				Client c = new Client("Ghita", 2);
+				coada.offer(c);
+				System.out.println("Avem inca un client, si o coada de " + coada.size());
+			}
 		}
+		lock.unlock();
 	}
 
 	public int getNrCamere() {
@@ -149,7 +189,7 @@ public class GameState implements Serializable {
 	}
 
 	public int getBuget() {
-		return buget;
+		return buget.get();
 	}
 
 	public int getNrClientiCoada() {
