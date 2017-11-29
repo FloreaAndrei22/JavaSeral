@@ -163,6 +163,8 @@ public class GameGrafic extends JFrame {
 			state.setState(SaveGameOptions.load());
 			System.out.println(state.hashCode());
 		});
+		
+//		btnSaveGame.doClick();
 	}
 
 }

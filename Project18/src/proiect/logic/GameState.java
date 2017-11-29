@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import proiect.AiDatFalimentException;
 import proiect.Util;
 import proiect.model.Camera;
 import proiect.model.Client;
@@ -43,10 +44,15 @@ public class GameState implements Serializable {
 	private transient Lock lock = new ReentrantLock();
 
 	public GameState() {
+		init();
+	}
+
+	public void init() {
 		// intreaba daca se vrea joc nou sau se incarca din fisier
 		// daca se vrea joc nou, initializam cu valori noi
 		buget = new AtomicInteger(1_000_000);
 		hotel = new Hotel();
+		coada.clear();
 	}
 
 	public void setCallbacks(GameStateCallbacks callbacks) {
@@ -105,6 +111,7 @@ public class GameState implements Serializable {
 			} else {
 				// TODO: trimite afisarea catre UI
 				System.err.println("Fonduri insuficiente...");
+				throw new AiDatFalimentException("Fonduri insuficiente...");
 			}
 		}
 		lock.unlock();
